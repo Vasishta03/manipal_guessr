@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}How to Play — ManipalGuessr{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+    <div class="page-header">
+        <h1>How to Play</h1>
+        <p>A quick guide to ManipalGuessr.</p>
+    </div>
+
+    <div class="how-cards">
+        <div class="how-card">
+            <div class="how-card-num">01</div>
+            <div class="how-card-content">
+                <h3>Enter your nickname</h3>
+                <p>No account needed. Just type a nickname and pick how many rounds you want to play (3, 5, or 7).</p>
+            </div>
+        </div>
+        <div class="how-card">
+            <div class="how-card-num">02</div>
+            <div class="how-card-content">
+                <h3>Study the photo</h3>
+                <p>A photo of a real location somewhere on or around the Manipal campus will be shown. Look for clues — buildings, signs, landmarks, surroundings.</p>
+            </div>
+        </div>
+        <div class="how-card">
+            <div class="how-card-num">03</div>
+            <div class="how-card-content">
+                <h3>Drop your pin</h3>
+                <p>Click anywhere on the Manipal map to place your pin. You can drag it to fine-tune, or click Clear to try again.</p>
+            </div>
+        </div>
+        <div class="how-card">
+            <div class="how-card-num">04</div>
+            <div class="how-card-content">
+                <h3>Confirm your guess</h3>
+                <p>Once you're happy with your pin, click <strong>Confirm Guess</strong>. Your score for that round is calculated based on how far your pin is from the real location.</p>
+            </div>
+        </div>
+        <div class="how-card">
+            <div class="how-card-num">05</div>
+            <div class="how-card-content">
+                <h3>Scoring</h3>
+                <p>Each round is scored out of <strong>5000 points</strong>. You get full marks for a perfect guess, and 0 points if you're more than 1 km away. The score decreases linearly in between.</p>
+                <div class="score-legend">
+                    <span class="sl-chip great">4000+ pts → Excellent</span>
+                    <span class="sl-chip ok">2000–4000 pts → Good</span>
+                    <span class="sl-chip miss">0–2000 pts → Keep practising</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="center-link" style="margin-top:2rem;">
+        <a href="{% url 'home' %}" class="btn-primary">Start Playing →</a>
+    </div>
+</div>
+{% endblock %}

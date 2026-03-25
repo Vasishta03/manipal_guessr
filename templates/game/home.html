@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ManipalGuessr — Guess your campus{% endblock %}
+
+{% block content %}
+<div class="home-wrap">
+    <div class="hero">
+        <div class="hero-text">
+            <div class="hero-badge">MIT Manipal</div>
+            <h1 class="hero-title">Can you find it<br>on the map?</h1>
+            <p class="hero-sub">Drop a pin on the Manipal campus map to guess where each photo was taken. The closer you are, the more points you score.</p>
+
+            <div class="stats-row">
+                <div class="stat-chip">
+                    <span class="stat-num">{{ total_locations }}</span>
+                    <span class="stat-label">Locations</span>
+                </div>
+                <div class="stat-chip">
+                    <span class="stat-num">5000</span>
+                    <span class="stat-label">Max pts / round</span>
+                </div>
+                <div class="stat-chip">
+                    <span class="stat-num">{{ total_games }}</span>
+                    <span class="stat-label">Games played</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="start-card">
+            <h2 class="card-title">Start a Game</h2>
+            <form method="post" action="{% url 'start_game' %}">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="nickname">Your Nickname</label>
+                    <input type="text" id="nickname" name="nickname" placeholder="e.g. campus_pro" maxlength="30" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="num_rounds">Number of Rounds</label>
+                    <div class="rounds-selector">
+                        <button type="button" class="rounds-btn active" data-val="5">5</button>
+                        <button type="button" class="rounds-btn" data-val="7">7</button>
+                        <button type="button" class="rounds-btn" data-val="10">10</button>
+                    </div>
+                    <input type="hidden" id="num_rounds" name="num_rounds" value="5">
+                </div>
+                <button type="submit" class="btn-primary btn-full">
+                    Start Game →
+                </button>
+            </form>
+
+            {% if total_locations == 0 %}
+            <div class="warning-box">
+                ⚠️ No locations seeded yet. Run <code>python manage.py seed_locations</code> and add images via admin.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if top_scores %}
+    <div class="section">
+        <h2 class="section-title">🏆 Recent Top Scores</h2>
+        <div class="score-table-wrap">
+            <table class="score-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Player</th>
+                        <th>Score</th>
+                        <th>Accuracy</th>
+                        <th>Rounds</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for gs in top_scores %}
+                    <tr>
+                        <td class="rank-cell">{{ forloop.counter }}</td>
+                        <td class="name-cell">{{ gs.nickname }}</td>
+                        <td class="score-cell">{{ gs.total_score }}</td>
+                        <td>{{ gs.get_accuracy }}%</td>
+                        <td>{{ gs.total_rounds }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="center-link">
+            <a href="{% url 'leaderboard' %}" class="btn-secondary">View Full Leaderboard</a>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="how-strip">
+        <div class="how-item">
+            <div class="how-icon"></div>
+            <div class="how-text">
+                <strong>Look at the photo</strong>
+                <span>A campus location is shown</span>
+            </div>
+        </div>
+        <div class="how-arrow">→</div>
+        <div class="how-item">
+            <div class="how-icon"></div>
+            <div class="how-text">
+                <strong>Drop your pin</strong>
+                <span>Click on the map where you think it is</span>
+            </div>
+        </div>
+        <div class="how-arrow">→</div>
+        <div class="how-item">
+            <div class="how-icon"></div>
+            <div class="how-text">
+                <strong>Score points</strong>
+                <span>Closer guess = more points</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const btns = document.querySelectorAll('.rounds-btn');
+    const input = document.getElementById('num_rounds');
+    btns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            btns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            input.value = btn.dataset.val;
+        });
+    });
+</script>
+{% endblock %}

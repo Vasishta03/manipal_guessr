@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Round {{ round_num }} of {{ total_rounds }} — ManipalGuessr{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    body { overflow: hidden; }
+    main { padding: 0; }
+    .navbar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="game-layout" id="gameLayout">
+
+    <!-- Image Panel -->
+    <div class="image-panel" id="imagePanel">
+        <div class="round-header">
+            <div class="round-badge">Round {{ round_num }} / {{ total_rounds }}</div>
+            <div class="score-live">
+                Score: <strong id="liveScore">
+                    {% with session.total_score as ts %}{{ ts }}{% endwith %}
+                </strong>
+            </div>
+            <div class="timer-wrap">
+                <span class="timer-icon">⏱</span>
+                <span id="timerDisplay">0:00</span>
+            </div>
+        </div>
+
+        <div class="progress-bar-wrap">
+            {% for r in completed_rounds %}
+            <div class="progress-seg done" title="{{ r.location.name }}: {{ r.score }} pts"></div>
+            {% endfor %}
+            <div class="progress-seg current"></div>
+            {% for i in session.rounds.all %}
+                {% if forloop.counter > round_num %}
+                <div class="progress-seg upcoming"></div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {% if round.location.get_image_url %}
+        <div class="location-image-wrap">
+            <img src="{{ round.location.get_image_url }}" alt="Location to guess" class="location-image" id="locationImg">
+        </div>
+        {% else %}
+        <div class="no-image-placeholder">
+            <div class="no-img-icon"></div>
+            <p>Image not available for this location.</p>
+            <small>Add an image via the admin panel.</small>
+        </div>
+        {% endif %}
+
+        <div class="image-footer">
+            <p class="guess-instruction"> Click on the map to drop your pin, then confirm.</p>
+        </div>
+    </div>
+
+    <!-- Map Panel -->
+    <div class="map-panel" id="mapPanel">
+        <div id="map"></div>
+
+        <!-- Guess Confirm Overlay -->
+        <div class="map-controls" id="mapControls">
+            <button class="btn-confirm" id="confirmBtn" disabled>
+                Confirm Guess
+            </button>
+            <button class="btn-clear" id="clearBtn" style="display:none">
+                Clear Pin
+            </button>
+        </div>
+
+        <div class="pin-hint" id="pinHint">Click anywhere on the map to place your pin</div>
+    </div>
+</div>
+
+<!-- Result overlay -->
+<div class="result-overlay" id="resultOverlay" style="display:none">
+    <div class="result-card" id="resultCard">
+        <div class="result-header">
+            <div class="result-score-big" id="resultScore">0</div>
+            <div class="result-label">points</div>
+        </div>
+        <div class="result-body">
+            <div class="result-distance">
+                <span class="dist-icon"></span>
+                <span id="resultDistance">0</span>m away from
+                <strong id="resultLocation"></strong>
+            </div>
+            <p class="result-desc" id="resultDesc"></p>
+            <div id="resultMapSmall" class="result-map-small"></div>
+        </div>
+        <div class="result-actions">
+            <div class="result-total">Total: <strong id="resultTotal">0</strong> pts</div>
+            <button class="btn-primary" id="nextBtn">
+                <span id="nextBtnText">Next Round →</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const SESSION_ID = {{ session.id }};
+const ROUND_NUM = {{ round_num }};
+const TOTAL_ROUNDS = {{ total_rounds }};
+const SUBMIT_URL = "{% url 'submit_guess' session.id round_num %}";
+const RESULT_URL = "{% url 'game_result' session.id %}";
+const CSRF_TOKEN = "{{ csrf_token }}";
+
+// Manipal bounds
+const MANIPAL_CENTER = [13.3527, 74.7858];
+const MANIPAL_BOUNDS = [[13.32, 74.76], [13.39, 74.82]];
+
+let guessMarker = null;
+let timerInterval = null;
+let secondsElapsed = 0;
+let resultMapInstance = null;
+
+// --- Timer ---
+function startTimer() {
+    timerInterval = setInterval(() => {
+        secondsElapsed++;
+        const m = Math.floor(secondsElapsed / 60);
+        const s = secondsElapsed % 60;
+        document.getElementById('timerDisplay').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    }, 1000);
+}
+
+// --- Main Map ---
+const map = L.map('map', {
+    center: MANIPAL_CENTER,
+    zoom: 15,
+    maxBounds: MANIPAL_BOUNDS,
+    maxBoundsViscosity: 0.8,
+    minZoom: 13,
+    maxZoom: 18,
+});
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19,
+}).addTo(map);
+
+const guessIcon = L.divIcon({
+    html: '<div class="custom-marker-pin"></div>',
+    className: '',
+    iconSize: [30, 40],
+    iconAnchor: [15, 40],
+});
+
+map.on('click', function(e) {
+    const { lat, lng } = e.latlng;
+    if (guessMarker) {
+        guessMarker.setLatLng([lat, lng]);
+    } else {
+        guessMarker = L.marker([lat, lng], { icon: guessIcon, draggable: true }).addTo(map);
+        guessMarker.on('dragend', () => {});
+    }
+    document.getElementById('confirmBtn').disabled = false;
+    document.getElementById('clearBtn').style.display = 'inline-block';
+    document.getElementById('pinHint').style.display = 'none';
+});
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+    if (guessMarker) {
+        map.removeLayer(guessMarker);
+        guessMarker = null;
+    }
+    document.getElementById('confirmBtn').disabled = true;
+    document.getElementById('clearBtn').style.display = 'none';
+    document.getElementById('pinHint').style.display = 'block';
+});
+
+document.getElementById('confirmBtn').addEventListener('click', submitGuess);
+
+async function submitGuess() {
+    if (!guessMarker) return;
+
+    clearInterval(timerInterval);
+
+    const pos = guessMarker.getLatLng();
+    document.getElementById('confirmBtn').disabled = true;
+    document.getElementById('confirmBtn').textContent = 'Submitting...';
+
+    try {
+        const res = await fetch(SUBMIT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF_TOKEN,
+            },
+            body: JSON.stringify({
+                lat: pos.lat,
+                lng: pos.lng,
+                time_taken: secondsElapsed,
+            }),
+        });
+        const data = await res.json();
+        showResult(data);
+    } catch (err) {
+        alert('Error submitting guess. Please try again.');
+        document.getElementById('confirmBtn').disabled = false;
+        document.getElementById('confirmBtn').textContent = 'Confirm Guess';
+    }
+}
+
+function showResult(data) {
+    document.getElementById('resultScore').textContent = data.score.toLocaleString();
+    document.getElementById('resultDistance').textContent = data.distance >= 1000
+        ? (data.distance / 1000).toFixed(2) + ' km'
+        : data.distance + ' m';
+    document.getElementById('resultLocation').textContent = data.location_name;
+    document.getElementById('resultDesc').textContent = data.location_description || '';
+    document.getElementById('resultTotal').textContent = data.total_score.toLocaleString();
+
+    const scoreEl = document.getElementById('resultScore');
+    if (data.score >= 4000) {
+        scoreEl.style.color = '#27ae60';
+    } else if (data.score >= 2000) {
+        scoreEl.style.color = '#f39c12';
+    } else {
+        scoreEl.style.color = '#e74c3c';
+    }
+
+    if (data.is_last) {
+        document.getElementById('nextBtnText').textContent = 'See Final Results 🏁';
+        document.getElementById('nextBtn').onclick = () => { window.location.href = RESULT_URL; };
+    } else {
+        document.getElementById('nextBtnText').textContent = 'Next Round →';
+        document.getElementById('nextBtn').onclick = () => {
+            window.location.href = `/game/${SESSION_ID}/round/${data.next_round}/`;
+        };
+    }
+
+    document.getElementById('resultOverlay').style.display = 'flex';
+
+    // Small result map showing actual vs guessed
+    setTimeout(() => {
+        if (resultMapInstance) {
+            resultMapInstance.remove();
+        }
+        resultMapInstance = L.map('resultMapSmall', { zoomControl: false, attributionControl: false });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(resultMapInstance);
+
+        const actualLatLng = [data.actual_lat, data.actual_lng];
+        const guessedLatLng = [guessMarker.getLatLng().lat, guessMarker.getLatLng().lng];
+
+        const actualIcon = L.divIcon({ html: '<div class="marker-actual">✓</div>', className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
+        const guessedIcon = L.divIcon({ html: '<div class="marker-guessed">?</div>', className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
+
+        L.marker(actualLatLng, { icon: actualIcon }).addTo(resultMapInstance).bindPopup(data.location_name);
+        L.marker(guessedLatLng, { icon: guessedIcon }).addTo(resultMapInstance).bindPopup('Your guess');
+
+        L.polyline([actualLatLng, guessedLatLng], { color: '#e74c3c', weight: 2, dashArray: '6,4' }).addTo(resultMapInstance);
+
+        const group = L.featureGroup([L.marker(actualLatLng), L.marker(guessedLatLng)]);
+        resultMapInstance.fitBounds(group.getBounds().pad(0.3));
+    }, 100);
+
+    document.getElementById('liveScore').textContent = data.total_score.toLocaleString();
+}
+
+startTimer();
+</script>
+{% endblock %}

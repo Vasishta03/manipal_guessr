@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}Leaderboard — ManipalGuessr{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+    <div class="page-header">
+        <h1>Leaderboard</h1>
+        <p>Top scores from all ManipalGuessr games.</p>
+    </div>
+
+    {% if scores %}
+    <div class="leaderboard-table-wrap">
+        <table class="score-table leaderboard-full">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>Score</th>
+                    <th>Accuracy</th>
+                    <th>Rounds</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for gs in scores %}
+                <tr class="{% if forloop.counter == 1 %}rank-gold{% elif forloop.counter == 2 %}rank-silver{% elif forloop.counter == 3 %}rank-bronze{% endif %}">
+                    <td class="rank-cell">
+                        {% if forloop.counter == 1 %}🥇
+                        {% elif forloop.counter == 2 %}🥈
+                        {% elif forloop.counter == 3 %}🥉
+                        {% else %}{{ forloop.counter }}{% endif %}
+                    </td>
+                    <td class="name-cell"><strong>{{ gs.nickname }}</strong></td>
+                    <td class="score-cell">{{ gs.total_score }}</td>
+                    <td>{{ gs.get_accuracy }}%</td>
+                    <td>{{ gs.total_rounds }}</td>
+                    <td class="date-cell">{{ gs.created_at|date:"d M Y" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <div class="empty-icon">🎮</div>
+        <p>No games played yet. Be the first!</p>
+        <a href="{% url 'home' %}" class="btn-primary">Start Playing</a>
+    </div>
+    {% endif %}
+
+    <div class="center-link" style="margin-top: 2rem;">
+        <a href="{% url 'home' %}" class="btn-secondary">← Back to Home</a>
+    </div>
+</div>
+{% endblock %}

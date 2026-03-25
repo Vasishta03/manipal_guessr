@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Results — ManipalGuessr{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
+{% block content %}
+<div class="result-page">
+    <div class="result-hero">
+        <div class="result-trophy">
+            {% if session.total_score >= 20000 %}🏆
+            {% elif session.total_score >= 12000 %}🥈
+            {% elif session.total_score >= 6000 %}🥉
+            {% else %}{% endif %}
+        </div>
+        <h1 class="result-name">{{ session.nickname }}</h1>
+        <div class="result-final-score">{{ session.total_score }}</div>
+        <div class="result-score-label">Total Points</div>
+        <div class="result-meta">
+            <span class="meta-chip">Accuracy: {{ accuracy }}%</span>
+            <span class="meta-chip">Rank: #{{ rank }}</span>
+            <span class="meta-chip">{{ session.total_rounds }} rounds</span>
+        </div>
+    </div>
+
+    <div class="rounds-breakdown">
+        <h2 class="section-title">Round Breakdown</h2>
+        <div class="rounds-grid">
+            {% for r in rounds %}
+            <div class="round-card {% if r.score >= 4000 %}round-great{% elif r.score >= 2000 %}round-ok{% else %}round-miss{% endif %}">
+                <div class="round-card-header">
+                    <span class="round-num-label">Round {{ r.round_number }}</span>
+                    <span class="round-score-label">{{ r.score }} pts</span>
+                </div>
+                <div class="round-card-body">
+                    <div class="round-location-name">{{ r.location.name }}</div>
+                    <div class="round-distance">
+                        {% if r.distance_meters %}
+                            {% if r.distance_meters >= 1000 %}
+                                {{ r.distance_meters|floatformat:0 }}m off
+                            {% else %}
+                                {{ r.distance_meters|floatformat:0 }}m off
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="round-score-bar">
+                    <div class="round-score-fill" style="width: {% widthratio r.score 5000 100 %}%"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="result-map-section">
+        <h2 class="section-title">Where were they?</h2>
+        <div id="summaryMap" class="summary-map"></div>
+    </div>
+
+    <div class="result-cta">
+        <a href="{% url 'home' %}" class="btn-primary">Play Again</a>
+        <a href="{% url 'leaderboard' %}" class="btn-secondary">Leaderboard</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const MANIPAL_CENTER = [13.3527, 74.7858];
+
+const map = L.map('summaryMap', { scrollWheelZoom: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+}).addTo(map);
+map.setView(MANIPAL_CENTER, 15);
+
+const rounds = [
+    {% for r in rounds %}
+    {% if r.completed and r.guessed_lat %}
+    {
+        name: "{{ r.location.name|escapejs }}",
+        actual: [{{ r.location.latitude }}, {{ r.location.longitude }}],
+        guessed: [{{ r.guessed_lat }}, {{ r.guessed_lng }}],
+        score: {{ r.score }},
+        round: {{ r.round_number }},
+    },
+    {% endif %}
+    {% endfor %}
+];
+
+const markers = [];
+
+rounds.forEach((r, i) => {
+    const color = r.score >= 4000 ? '#27ae60' : r.score >= 2000 ? '#f39c12' : '#e74c3c';
+
+    const actualIcon = L.divIcon({
+        html: `<div style="background:${color};color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)">${r.round}</div>`,
+        className: '', iconSize: [28, 28], iconAnchor: [14, 14]
+    });
+    const guessedIcon = L.divIcon({
+        html: `<div style="background:#2c3e50;color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.3)">?</div>`,
+        className: '', iconSize: [24, 24], iconAnchor: [12, 12]
+    });
+
+    const am = L.marker(r.actual, { icon: actualIcon }).addTo(map).bindPopup(`<strong>${r.name}</strong><br>Round ${r.round} — ${r.score} pts`);
+    const gm = L.marker(r.guessed, { icon: guessedIcon }).addTo(map).bindPopup(`Your guess for Round ${r.round}`);
+    L.polyline([r.actual, r.guessed], { color, weight: 2, dashArray: '5,4', opacity: 0.7 }).addTo(map);
+    markers.push(am, gm);
+});
+
+if (markers.length > 0) {
+    const group = L.featureGroup(markers);
+    map.fitBounds(group.getBounds().pad(0.2));
+}
+</script>
+{% endblock %}
