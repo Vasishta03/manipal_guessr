@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}ManipalGuessr — Guess your campus{% endblock %}
+{% block title %}ManipalGeoGuessr — Guess your campus{% endblock %}
 
 {% block content %}
 <div class="home-wrap">
@@ -51,7 +51,7 @@
 
             {% if total_locations == 0 %}
             <div class="warning-box">
-                ⚠️ No locations seeded yet. Run <code>python manage.py seed_locations</code> and add images via admin.
+                No locations seeded yet. Run <code>python manage.py seed_locations</code> and add images via admin.
             </div>
             {% endif %}
         </div>
