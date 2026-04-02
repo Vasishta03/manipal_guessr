@@ -1,7 +1,10 @@
 
 python manage.py migrate
+
 python manage.py seed_locations
-python manage.py createsuperuser
+
+python manage.py createsuperuser  
+
 python manage.py runserver
 
 Go to **http://127.0.0.1:8000/admin/** and log in with the superuser you created.
@@ -74,7 +77,8 @@ manipal_guessr/
 
 - **Backend**: Django 4.2
 - **Database**: SQLite (zero config, swap to Postgres for production)
-- **Maps**: OpenStreetMap via Leaflet.js (free, no API key needed)
+- **Maps**: OpenStreetMap via Leaflet.js 
 - **No auth required**: sessions only
 
 ---
+
